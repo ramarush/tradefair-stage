@@ -1,0 +1,8 @@
+node_modules
+.next
+/lib/generated/prisma
+
+# Media uploads (sensitive user files)
+/media
+token.json
+logs

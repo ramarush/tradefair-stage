@@ -1,0 +1,134 @@
+sudo nano /etc/systemd/system/trade.service
+
+
+[Unit]
+Description=Next.js App
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/tradefair
+ExecStart=/root/.nvm/versions/node/v22.19.0/bin/node /root/tradefair/node_modules/.bin/next start -p 3000
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=PATH=/root/.nvm/versions/node/v22.19.0/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target
+
+
+
+sudo systemctl daemon-reload
+sudo systemctl enable trade
+sudo systemctl start trade
+
+sudo journalctl -u trade -f
+
+
+ExecStart=/root/.nvm/versions/node/v22.19.0/bin/npm start
+
+
+sudo nano /etc/nginx/sites-available/trade
+
+
+server {
+    listen 80;
+    server_name tradefair.live www.tradefair.live 64.227.182.222;
+
+    location / {
+        proxy_pass https://tradefair.onrender.com;
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+
+sudo certbot --nginx -d tradefair.live -d www.tradefair.live
+
+# Redirect all HTTP traffic to HTTPS (including www)
+server {
+    listen 80;
+    server_name tradefair.live www.tradefair.live;
+    return 301 https://tradefair.live$request_uri;
+}
+
+# Main HTTPS server
+server {
+    listen 443 ssl;
+    server_name tradefair.live;
+
+    ssl_certificate /etc/letsencrypt/live/tradefair.live/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/tradefair.live/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    client_max_body_size 12M;
+    
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+# Optional: Redirect https://www.tradefair.live to https://tradefair.live
+server {
+    listen 443 ssl;
+    server_name www.tradefair.live;
+
+    ssl_certificate /etc/letsencrypt/live/tradefair.live/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/tradefair.live/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    return 301 https://tradefair.live$request_uri;
+}
+
+
+
+nohup node scripts/heartbeat.js > /root/heartbeat.log 2>&1 &
+
+
+pm2 status - Check app status
+pm2 restart tradefair - Restart the app
+pm2 stop tradefair - Stop the app
+pm2 logs tradefair - View logs
+pm2 monit - Monitor resources
+pm2 delete tradefair - Remove the app from PM2
+
+
+
+-- 1. Delete related transactions
+DELETE FROM transactions
+WHERE user_id IN (
+    SELECT id FROM users WHERE is_admin = false
+);
+
+-- 2. Delete related bank accounts
+DELETE FROM bank_accounts
+WHERE user_id IN (
+    SELECT id FROM users WHERE is_admin = false
+);
+
+-- 3. Finally delete the users
+DELETE FROM users WHERE is_admin = false;
+
+
+sudo -i -u postgres
+psql
+
+
+sudo -u postgres psql
+
+
+\c tradefair
+SET search_path TO public;
+
+
+nohup node scripts/process-campaign-bonuses.js > /root/process-campaign-bonuses.log 2>&1 &

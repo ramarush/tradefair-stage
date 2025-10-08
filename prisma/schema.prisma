@@ -1,0 +1,217 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  phone      String?
+  firstName  String   @map("first_name")
+  lastName   String   @map("last_name")
+  password   String
+  isActive   Boolean  @default(true) @map("is_active")
+  isAdmin    Boolean  @default(false) @map("is_admin")
+  isStaff    Boolean  @default(false) @map("is_staff")
+  currency   String?  @default("USD") @db.VarChar(3)
+  balance    Decimal  @default(0) @db.Decimal(15, 2)
+  bonusBalance Decimal @default(0) @db.Decimal(15, 2) @map("bonus_balance") // Bonus balance from campaigns
+  tradingPlatformUserId Int? @map("trading_platform_user_id") // User ID from trading platform
+  tradingPlatformAccountId Int? @map("trading_platform_account_id") // Account ID from trading platform
+  totpSecret String? @default(uuid()) @map("totp_secret") // TOTP secret for email verification
+  // UTM tracking fields for marketing attribution
+  utmSource     String? @map("utm_source")     // e.g., "google", "facebook", "instagram"
+  utmMedium     String? @map("utm_medium")     // e.g., "cpc", "social", "email"
+  utmCampaign   String? @map("utm_campaign")   // e.g., "summer_sale", "new_user_promo"
+  campaignId    String? @map("campaign_id")    // Meta/Google Ads campaign ID
+  
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  transactions       Transaction[]
+  bankAccounts       BankAccount[]
+  newsArticles       News[]
+  blogPosts          Blog[]
+
+  @@map("users")
+}
+
+model Transaction {
+  id            Int       @id @default(autoincrement())
+  userId        Int       @map("user_id")
+  type          String    // "deposit" or "withdrawal"
+  amount        Decimal   @db.Decimal(15, 2)
+  currency      String    @db.VarChar(3)
+  status        String    @default("pending") // "pending", "approved", "rejected", "completed"
+  balanceType   String    @default("wallet") @map("balance_type") // "wallet" or "bonus"
+  notes         String?
+  mtrNumber     String?   @unique @map("mtr_number")
+  bankId        Int?      @map("bank_id")
+  mediaId       Int?      @map("media_id")
+  adminNotes    String?   @map("admin_notes")
+  closingBalance Decimal  @default(0) @db.Decimal(15, 2) @map("closing_balance")
+  tradingPlatformRequestId Int? @map("trading_platform_request_id") // Request ID from trading platform
+  paymentMethodId Int?     @map("payment_method_id") // Reference to payment method used
+  approvedAt    DateTime? @map("approved_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @map("updated_at")
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id])
+  bankAccount   BankAccount?   @relation(fields: [bankId], references: [id])
+  media         Media?         @relation(fields: [mediaId], references: [id])
+  paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+
+  @@map("transactions")
+}
+
+model Campaign {
+  id              Int       @id @default(autoincrement())
+  campaignName    String    @map("campaign_name")
+  campaignId      String    @unique @map("campaign_id")
+  userRecurrence  Int       @default(1) @map("user_recurrence") // How many times a user can avail this campaign
+  percentageBonus Decimal   @default(0) @db.Decimal(5, 2) @map("percentage_bonus") // Bonus percentage (e.g., 10.50 for 10.5%)
+  
+  // New fields for enhanced campaign control
+  bonusType       String    @default("every_deposit") @map("bonus_type") // "first_deposit_only" or "every_deposit"
+  targetUserType  String    @default("all_users") @map("target_user_type") // "all_users" or "specific_users"
+  targetUserIds   Int[]     @default([]) @map("target_user_ids") // Array of user IDs when targeting specific users
+  
+  isActive        Boolean   @default(true) @map("is_active")
+  startDateTime   DateTime  @map("start_date_time")
+  endDateTime     DateTime  @map("end_date_time")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @map("updated_at")
+
+  @@map("campaigns")
+}
+
+model ProcessingCheckpoint {
+  id                    Int      @id @default(autoincrement())
+  lastProcessedTransactionId Int @map("last_processed_transaction_id")
+  lastProcessedAt       DateTime @default(now()) @map("last_processed_at")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @default(now()) @map("updated_at")
+
+  @@map("processing_checkpoints")
+}
+
+model BankAccount {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  bankName       String   @map("bank_name")
+  accountNumber  String   @map("account_number")
+  accountHolder  String   @map("account_holder")
+  ifscCode       String?  @map("ifsc_code")
+  routingNumber  String?  @map("routing_number")
+  swiftCode      String?  @map("swift_code")
+  accountType    String?  @map("account_type") // "savings", "checking", etc.
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+
+  @@map("bank_accounts")
+}
+
+model Media {
+  id           Int      @id @default(autoincrement())
+  fileName     String   @map("file_name")
+  originalName String   @map("original_name")
+  mimeType     String   @map("mime_type")
+  fileSize     Int      @map("file_size")
+  url          String
+  uploadedBy   Int?     @map("uploaded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  transactions Transaction[]
+
+  @@map("media")
+}
+
+model News {
+  id            Int       @id @default(autoincrement())
+  title         String
+  slug          String    @unique
+  content       String
+  excerpt       String?
+  featuredImage String?   @map("featured_image")
+  status        String    @default("draft")
+  authorId      Int       @map("author_id")
+  publishedAt   DateTime? @map("published_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @map("updated_at")
+
+  // Relations
+  author User @relation(fields: [authorId], references: [id])
+
+  @@map("news")
+}
+
+model Blog {
+  id            Int       @id @default(autoincrement())
+  title         String
+  slug          String    @unique
+  content       String
+  excerpt       String?
+  featuredImage String?   @map("featured_image")
+  tags          String[]
+  status        String    @default("draft")
+  authorId      Int       @map("author_id")
+  publishedAt   DateTime? @map("published_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @map("updated_at")
+
+  // Relations
+  author User @relation(fields: [authorId], references: [id])
+
+  @@map("blogs")
+}
+
+model PaymentMethod {
+  id                      Int      @id @default(autoincrement())
+  type                   String   // "bank" or "upi"
+  accountHolderName      String   @map("account_holder_name")
+  minAmount              Decimal  @db.Decimal(15, 2) @map("min_amount")
+  maxAmount              Decimal  @db.Decimal(15, 2) @map("max_amount")
+  minTransactionsRequired Int     @default(0) @map("min_transactions_required")
+  expirationTimeMinutes  Int      @default(30) @map("expiration_time_minutes") // Time in minutes for deposit completion
+  isActive               Boolean  @default(true) @map("is_active")
+  
+  // Bank-specific fields (nullable for UPI)
+  accountNumber          String?  @map("account_number")
+  ifscCode               String?  @map("ifsc_code")
+  bankName               String?  @map("bank_name")
+  
+  // UPI-specific fields (nullable for Bank)
+  vpaAddress             String?  @map("vpa_address")
+  
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  transactions Transaction[]
+
+  @@map("payment_methods")
+}
+
+model SystemSettings {
+  id        Int      @id @default(autoincrement())
+  settings  Json     // Store all settings as JSON
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@map("system_settings")
+}
