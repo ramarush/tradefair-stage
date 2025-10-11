@@ -30,6 +30,8 @@ function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+
+
   // Extract UTM parameters from URL on component mount
   useEffect(() => {
     const extractedUtmData = {
@@ -48,6 +50,8 @@ function SignupForm() {
   }, [searchParams]);
  
 
+
+  
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
@@ -87,7 +91,9 @@ function SignupForm() {
         ...utmData
       };
       
-      const response = await fetch('https://tradefair.onrender.com/api/auth/signup', {
+
+    
+const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

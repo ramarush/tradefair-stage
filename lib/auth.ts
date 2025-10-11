@@ -196,6 +196,7 @@ export const authenticateUser = async (request: NextRequest | Request, requiredR
     // Get authorization header
     const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
     
+    console.log('authHeader', authHeader?.startsWith('Bearer '))
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return {
         success: false,

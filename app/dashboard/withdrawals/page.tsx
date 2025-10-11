@@ -39,7 +39,7 @@ export default function WithdrawalsPage() {
   const fetchWithdrawals = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/user/transactions?type=withdrawal', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/transactions?type=withdrawal`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

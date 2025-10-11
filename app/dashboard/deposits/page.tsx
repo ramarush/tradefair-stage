@@ -37,7 +37,7 @@ export default function DepositsPage() {
   const fetchDeposits = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/user/transactions?type=deposit', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/transactions?type=deposit`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

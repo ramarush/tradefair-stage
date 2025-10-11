@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import tradingPlatformApi from '@/lib/tradingPlatformApi';
 
 // GET - Get user dashboard data
 export async function GET(request: NextRequest) {
@@ -34,8 +35,11 @@ export async function GET(request: NextRequest) {
         isActive: true,
         balance: true,
         currency: true,
+        tradingPlatformUserId: true,
+        tradingPlatformAccountId: true,
       },
     });
+
 
     if (!user || !user.isActive) {
       return NextResponse.json(
@@ -43,6 +47,9 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       );
     }
+
+
+    const tradingPlatformUserId = user.tradingPlatformUserId;
 
     const userId = decoded.userId;
 
@@ -103,9 +110,31 @@ export async function GET(request: NextRequest) {
     });
 
     // Get recent deposits (last 5)
+
+    console.log('tradingPlatformUserId', tradingPlatformUserId)
     
+const getRealTimeuserCurrentBalance = async (tradingPlatformUserId: number) => {
+  try {
+    const response = await tradingPlatformApi.getCurrentBalance(tradingPlatformUserId);
+    console.log("response" ,response)
+    if (response.success) {
+      return response.balances?.[tradingPlatformUserId] || 0;
+    }
+  } catch (error) {
+    console.error('Error fetching current balance:', error);
+  }
+  return 0;
+}
 
+const currentBalance = await getRealTimeuserCurrentBalance(tradingPlatformUserId || 0);
 
+    // Update user balance in DB with real-time value
+    await prisma.user.update({
+      where: { id: userId },
+      data: { balance: currentBalance },
+    });
+
+  
     return NextResponse.json({
       stats: {
         totalDeposits: Number(depositStats._sum.amount || 0),
@@ -114,7 +143,7 @@ export async function GET(request: NextRequest) {
         pendingWithdrawals: pendingWithdrawals,
         pendingDepositAmount: Number(pendingDepositAmount._sum.amount || 0),
         pendingWithdrawalAmount: Number(pendingWithdrawalAmount._sum.amount || 0),
-        balance: Number(user.balance || 0),
+        balance: Number(currentBalance || 0),
         currency: user.currency || 'USD',
         currency_symbol: user.currency === 'INR' ? '₹' : '$',
       },

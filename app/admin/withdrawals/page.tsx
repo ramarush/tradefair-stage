@@ -61,7 +61,7 @@ export default function WithdrawalsManagement() {
         params.append('search', searchTerm.trim());
       }
 
-      const response = await fetch(`/api/admin/withdrawals?${params}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/withdrawals?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -82,7 +82,7 @@ export default function WithdrawalsManagement() {
   const handleViewWithdrawal = async (withdrawal: Withdrawal) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/withdrawals/${withdrawal.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/withdrawals/${withdrawal.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -111,7 +111,7 @@ export default function WithdrawalsManagement() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/withdrawals/${selectedWithdrawal.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/withdrawals/${selectedWithdrawal.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -146,7 +146,7 @@ export default function WithdrawalsManagement() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/withdrawals/${selectedWithdrawal.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/withdrawals/${selectedWithdrawal.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -188,7 +188,7 @@ export default function WithdrawalsManagement() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/withdrawals/${selectedWithdrawal.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/withdrawals/${selectedWithdrawal.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -86,7 +86,7 @@ export default function TransactionLedger() {
         ...(dateTo && { dateTo })
       });
 
-      const response = await fetch(`/api/user/transactions?${params}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/transactions?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -108,7 +108,7 @@ export default function TransactionLedger() {
   const fetchBankAccounts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/user/bank-accounts', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/bank-accounts`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

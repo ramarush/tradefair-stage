@@ -163,6 +163,7 @@ function CustomerDashboardContent({ refreshTrigger }: { refreshTrigger?: number 
 
       if (response.ok) {
         const data = await response.json();
+        console.log('data', data)
         setBalance(data.balance);
         setBonusBalance(data.bonusBalance);
         
@@ -175,7 +176,7 @@ function CustomerDashboardContent({ refreshTrigger }: { refreshTrigger?: number 
         console.error('Failed to fetch trading balance');
         
         // Fallback to local balance API if trading balance fails
-        const fallbackResponse = await fetch('/api/user/balance', {
+        const fallbackResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/balance`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -194,7 +195,7 @@ function CustomerDashboardContent({ refreshTrigger }: { refreshTrigger?: number 
       // Final fallback to local balance
       try {
         const token = localStorage.getItem('token');
-        const fallbackResponse = await fetch('/api/user/balance', {
+        const fallbackResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/balance`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -433,7 +434,7 @@ function CustomerDashboardContent({ refreshTrigger }: { refreshTrigger?: number 
               <div className="flex items-center">
                 <BanknotesIcon className="h-5 w-5 text-purple-600 flex-shrink-0" />
                 <div className="ml-2 min-w-0 flex-1">
-                  <p className="text-xs font-medium text-gray-500 truncate">Trading Balance</p>
+                  <p className="text-xs font-medium text-gray-500 truncate">Trading Balance </p>
                   <p className="text-sm font-bold text-purple-600 truncate">
                     {balance !== null ? formatCurrency(balance, userCurrency) : 'Loading...'}
                   </p>

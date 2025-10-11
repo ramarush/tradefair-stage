@@ -121,7 +121,7 @@ export default function DepositRequest() {
   const fetchPaymentMethods = async (depositAmount: number) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/user/payment-methods?amount=${depositAmount}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/payment-methods?amount=${depositAmount}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -269,7 +269,7 @@ export default function DepositRequest() {
         const formDataUpload = new FormData();
         formDataUpload.append('file', paymentProof);
         
-        const uploadResponse = await fetch('/api/media/upload', {
+        const uploadResponse = await fetch(`/api/media/upload`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -295,7 +295,7 @@ export default function DepositRequest() {
         paymentMethodId: selectedPaymentMethod?.id,
       };
       
-      const response = await fetch('/api/user/transactions', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/transactions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

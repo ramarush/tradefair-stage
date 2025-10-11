@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
       }
     });
 
+
+    console.log('user get ', user)
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -41,6 +43,7 @@ export async function GET(request: NextRequest) {
         }
       });
 
+      console.log('localUser', localUser)
       return NextResponse.json({
         success: true,
         balance: localUser?.balance || 0,
@@ -53,6 +56,8 @@ export async function GET(request: NextRequest) {
     // Fetch balance from trading platform
     const financialsResult = await tradingPlatformApi.getUserFinancials(user.tradingPlatformUserId);
 
+
+    console.log('financialsResult', financialsResult)
     if (!financialsResult.success) {
       console.error('Failed to fetch trading platform balance:', financialsResult.message);
       
@@ -65,6 +70,8 @@ export async function GET(request: NextRequest) {
         }
       });
 
+
+ 
       return NextResponse.json({
         success: true,
         balance: localUser?.balance || 0,
@@ -83,6 +90,9 @@ export async function GET(request: NextRequest) {
       }
     });
 
+
+    console.log('localUser', localUser)
+    console.log('financialsResults', financialsResult)
     return NextResponse.json({
       success: true,
       balance: financialsResult.balance || 0,

@@ -139,6 +139,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+
+
     const body = await request.json();
     const { type, amount, notes, bankId, mediaId, mtrNumber, paymentMethodId } = body;
 
@@ -201,10 +203,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+
     // For withdrawals, check if user has sufficient balance (wallet + bonus)
     if (type === 'withdrawal') {
       const totalAvailableBalance = Number(user.balance) + Number(user.bonusBalance || 0);
-      if (totalAvailableBalance < amount) {
+
+   
+      if (totalAvailableBalance < Number(amount)) {
         return NextResponse.json({ 
           error: 'Insufficient balance for withdrawal.' 
         }, { status: 400 });
@@ -244,6 +249,8 @@ export async function POST(request: NextRequest) {
           tradingPlatformUserId: user.tradingPlatformUserId,
         });
 
+   
+
         if (!tradingPlatformResult.success) {
           return NextResponse.json(
             { error: `Trading platform error: ${tradingPlatformResult.message}` },
@@ -259,6 +266,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+
+   
     // For withdrawals, create cash request on trading platform if user has trading platform account
     if (type === 'withdrawal' && user.tradingPlatformUserId) {
       try {

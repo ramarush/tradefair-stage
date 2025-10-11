@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     // Use Prisma transaction to ensure atomicity
     await prisma.$transaction(async (tx) => {
       // Create new user
-      newUser = await tx.user.create({
+      newUser = await prisma.user.create({
         data: {
           email,
           phone: phone || null,

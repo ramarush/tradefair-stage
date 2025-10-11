@@ -63,7 +63,7 @@ export default function WithdrawalRequest() {
   const fetchBankAccounts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/user/bank-accounts', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/bank-accounts`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -83,7 +83,7 @@ export default function WithdrawalRequest() {
       const token = localStorage.getItem('token');
       
       // Fetch local bonus balance
-      const localResponse = await fetch('/api/user/balance', {
+      const localResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/balance`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -116,7 +116,7 @@ export default function WithdrawalRequest() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/user/bank-accounts', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/bank-accounts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -177,7 +177,7 @@ export default function WithdrawalRequest() {
         currency: userCurrency
       };
       
-      const response = await fetch('/api/user/transactions', {
+      const response = await fetch(`/api/user/transactions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

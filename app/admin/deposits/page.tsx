@@ -91,7 +91,7 @@ export default function DepositsManagement() {
         params.append('search', searchTerm.trim());
       }
 
-      const response = await fetch(`/api/admin/deposits?${params}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/deposits?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -162,7 +162,7 @@ export default function DepositsManagement() {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/deposits/${deposit.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/deposits/${deposit.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -271,7 +271,7 @@ export default function DepositsManagement() {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/deposits/${deposit.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/deposits/${deposit.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -374,7 +374,7 @@ export default function DepositsManagement() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/deposits/${selectedDeposit.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/deposits/${selectedDeposit.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
