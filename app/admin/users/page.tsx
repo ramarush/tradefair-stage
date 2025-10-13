@@ -55,6 +55,8 @@ export default function UsersManagement() {
     is_active: true,
   });
 
+
+  console.log('users', users)
   useEffect(() => {
     fetchUsers();
   }, [currentPage, searchTerm, statusFilter]);
@@ -75,6 +77,8 @@ export default function UsersManagement() {
         },
       });
 
+
+        
       if (response.ok) {
         const data = await response.json();
         setUsers(data.users);

@@ -32,7 +32,9 @@ function SignupForm() {
 
 
 
-  // Extract UTM parameters from URL on component mount
+
+  console.log('process.env.NEXT_PUBLIC_API_URL',process.env.NEXT_PUBLIC_API_URL )
+
   useEffect(() => {
     const extractedUtmData = {
       utm_source: searchParams.get('utm_source') || '',
@@ -93,6 +95,7 @@ function SignupForm() {
       
 
     
+
 const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
         method: 'POST',
         headers: {

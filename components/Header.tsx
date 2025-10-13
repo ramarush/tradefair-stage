@@ -21,13 +21,19 @@ const Header = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    if (token && userData) {
+ useEffect(() => {
+  const token = localStorage.getItem('token');
+  const userData = localStorage.getItem('user');
+
+  if (token && userData && userData !== 'undefined') {
+    try {
       setUser(JSON.parse(userData));
+    } catch (err) {
+      console.error('Error parsing user data:', err);
+      localStorage.removeItem('user');
     }
-  }, []);
+  }
+}, []);
 
   const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
 

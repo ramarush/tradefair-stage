@@ -1,6 +1,8 @@
 import { Pool } from 'pg';
 import { PrismaClient } from '@prisma/client';
 
+
+console.log('process.env.POSTGRES_USER',process.env.POSTGRES_USER )
 const pool = new Pool({
   user: process.env.POSTGRES_USER || 'tradefair',
   host: process.env.POSTGRES_HOST || 'localhost',

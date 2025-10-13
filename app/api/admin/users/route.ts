@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { verifyToken, hashPassword, validateEmail, validatePhone } from '@/lib/auth';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 // GET - List all users with pagination
+
+const prisma = new PrismaClient();
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -22,17 +25,17 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
+    console.log('client', decoded)
 
-    const client = await pool.connect();
-    
+    // Use Prisma instead of pool.connect() to avoid ECONNREFUSED
     try {
       // Check if user is admin or staff
-      const userResult = await client.query(
-        'SELECT is_admin, is_staff FROM users WHERE id = $1',
-        [decoded.userId]
-      );
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: { isAdmin: true, isStaff: true }
+      });
 
-      if (userResult.rows.length === 0 || (!userResult.rows[0].is_admin && !userResult.rows[0].is_staff)) {
+      if (!user || (!user.isAdmin && !user.isStaff)) {
         return NextResponse.json(
           { error: 'Access denied. Admin or staff privileges required.' },
           { status: 403 }
@@ -48,49 +51,57 @@ export async function GET(request: NextRequest) {
 
       const offset = (page - 1) * limit;
 
-      // Build query conditions
-      let whereClause = '';
-      const queryParams: unknown[] = [];
-      let paramCount = 0;
-
+      // Build where conditions
+      const where: Prisma.UserWhereInput = {};
       if (search) {
-        paramCount++;
-        whereClause += ` WHERE (first_name ILIKE $${paramCount} OR last_name ILIKE $${paramCount} OR email ILIKE $${paramCount})`;
-        queryParams.push(`%${search}%`);
+        where.OR = [
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } }
+        ];
       }
-
       if (status !== 'all') {
-        const statusCondition = status === 'active' ? 'is_active = true' : 'is_active = false';
-        if (whereClause) {
-          whereClause += ` AND ${statusCondition}`;
-        } else {
-          whereClause += ` WHERE ${statusCondition}`;
-        }
+        where.isActive = status === 'active';
       }
 
       // Get total count
-      const countQuery = `SELECT COUNT(*) as total FROM users${whereClause}`;
-      const countResult = await client.query(countQuery, queryParams);
-      const total = parseInt(countResult.rows[0].total);
+      const total = await prisma.user.count({ where });
 
       // Get users
-      paramCount++;
-      queryParams.push(limit);
-      paramCount++;
-      queryParams.push(offset);
+      const users = await prisma.user.findMany({
+        where:{
+          isAdmin:false,
+       
+        },
+        select: {
+          id: true,
+          email: true,
+          phone: true,
+          firstName: true,
+          lastName: true,
+          isActive: true,
+          balance: true,
+          currency: true,
+          createdAt: true,
+          updatedAt: true,
+          isAdmin:true,
+          isStaff:true,
 
-      const usersQuery = `
-        SELECT id, email, phone, first_name, last_name, is_active, is_admin, is_staff, balance, currency, created_at, updated_at
-        FROM users
-        ${whereClause}
-        ORDER BY created_at DESC
-        LIMIT $${paramCount - 1} OFFSET $${paramCount}
-      `;
+        },
 
-      const usersResult = await client.query(usersQuery, queryParams);
-
+        
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit
+      });
       return NextResponse.json({
-        users: usersResult.rows,
+        users: users.map(u => ({
+          ...u,
+          is_admin: u.isAdmin,
+          is_staff: u.isStaff,
+          is_active: u.isActive,
+          created_at:u.createdAt,
+        })),
         pagination: {
           page,
           limit,
@@ -99,8 +110,22 @@ export async function GET(request: NextRequest) {
         }
       }, { status: 200 });
 
-    } finally {
-      client.release();
+      return NextResponse.json({
+        users,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      }, { status: 200 });
+
+    } catch (prismaError: unknown) {
+      console.error('Prisma error:', prismaError);
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 500 }
+      );
     }
 
   } catch (error) {

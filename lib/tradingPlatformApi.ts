@@ -265,32 +265,7 @@ class TradingPlatformApiService {
   /**
    * Load token from token.json file
    */
-  private async loadTokenFromFile(): Promise<{
-    token: string;
-    expiryTime: number;
-  } | null> {
-    try {
-      const fs = await import("fs/promises");
-      const path = await import("path");
 
-      const tokenFilePath = path.join(process.cwd(), "token.json");
-      const tokenData = await fs.readFile(tokenFilePath, "utf-8");
-      const parsedData = JSON.parse(tokenData);
-
-      // Check if token is still valid (not expired)
-      if (parsedData.expiryTime && Date.now() < parsedData.expiryTime) {
-        return {
-          token: parsedData.token,
-          expiryTime: parsedData.expiryTime,
-        };
-      }
-
-      return null; // Token expired or invalid
-    } catch (error) {
-      // File doesn't exist or other error - return null to trigger new login
-      return null;
-    }
-  }
 
   /**
    * Save token to token.json file
@@ -311,7 +286,7 @@ class TradingPlatformApiService {
       };
 
       await fs.writeFile(tokenFilePath, JSON.stringify(tokenData, null, 2));
-      console.log("Token saved to token.json");
+      
     } catch (error) {
       console.error("Error saving token to file:", error);
       // Don't throw error - token persistence is not critical
@@ -360,7 +335,7 @@ class TradingPlatformApiService {
       // Save token to file for future use
       await this.saveTokenToFile(this.adminToken, this.tokenExpiryTime);
 
-      console.log("Trading platform admin login successful");
+
       return this.adminToken;
     } catch (error) {
       console.error("Error logging into trading platform:", error);
@@ -373,7 +348,7 @@ class TradingPlatformApiService {
    */
   private async getValidAdminToken(): Promise<string> {
     if (!this.adminToken || Date.now() >= this.tokenExpiryTime) {
-      console.log("Admin token expired or missing, logging in...");
+
       await this.loginAsAdmin();
     }
 
@@ -396,7 +371,7 @@ class TradingPlatformApiService {
 
       this.isRefreshingToken = true;
       try {
-        console.log("Session expired detected, refreshing token...");
+     
         await this.loginAsAdmin();
         return true;
       } finally {
@@ -460,17 +435,15 @@ class TradingPlatformApiService {
     message?: string;
     error?: string;
   }> {
+
+    console.log(" create user on trading platform", userData)
     try {
       const token = await this.getValidAdminToken();
 
-      const currencyId = this.getCurrencyId("USD"); // Default to USD
-
-      console.log("userData", userData);
-      // Get system settings to determine accountID based on currency
       const systemSettings = await this.getSystemSettings();
       const arkVariables = systemSettings.arkVariables || {};
 
-      console.log("arkVariables", arkVariables);
+     
 
       // Get the last trading_platform_account_id for this currency and increment by 1
       const { PrismaClient } = await import("@prisma/client");
@@ -487,49 +460,70 @@ class TradingPlatformApiService {
             },
           },
           orderBy: {
-            tradingPlatformAccountId: "desc",
+            tradingPlatformAccountId: "desc"
           },
           select: {
             tradingPlatformAccountId: true,
           },
         });
 
-        console.log("lastUser", lastUser);
+  console.log(' lastUser', )
         if (lastUser && lastUser.tradingPlatformAccountId) {
+
+ 
           accountID = lastUser.tradingPlatformAccountId + 1;
         } else {
+       
           // If no previous users found for this currency, use series base as starting point
           if (userData.currency === "USD" && arkVariables.usdSeries) {
+         
+
             accountID = parseInt(arkVariables.usdSeries) || 1;
           } else if (userData.currency === "INR" && arkVariables.inrSeries) {
-            accountID = parseInt(arkVariables.inrSeries) || 1;
+            
+            accountID = parseInt(arkVariables.inrSeries)  +1 || 1;
           } else {
+           
             accountID = 1; // Ultimate fallback
           }
         }
 
+
         await prisma.$disconnect();
       } catch (error) {
-        console.error(
+
+
+
+        console.log(
           "Error fetching last trading platform account ID:",
           error
         );
         await prisma.$disconnect();
-
+console.log(" prisma disconnect tradingAPI create user time ")
         // Fallback to old logic if database query fails
         if (userData.currency === "USD" && arkVariables.usdSeries) {
           const seriesBase = parseInt(arkVariables.usdSeries) || 0;
           accountID = userData.userId + seriesBase;
         } else if (userData.currency === "INR" && arkVariables.inrSeries) {
           const seriesBase = parseInt(arkVariables.inrSeries) || 0;
+         
           accountID = userData.userId + seriesBase;
         } else {
           accountID = -1;
         }
       }
-      console.log(
-        `Trading platform accountID calculation: userId(${userData.userId}) + series(${arkVariables.usdSeries}) = ${accountID}`
-      );
+     
+
+      // Validate accountID before proceeding
+      if (accountID < 1) {
+        return {
+          success: false,
+          error: "Invalid accountID calculated. Unable to create user.",
+        };
+      }
+
+
+
       const createUserPayload: TradingPlatformUserCreateRequest = {
         accountID: accountID,
         accountMirroringAccountIds: [],
@@ -582,13 +576,9 @@ class TradingPlatformApiService {
         chargeMarginForEntry: false,
       };
 
-      // Log the full payload for debugging (excluding sensitive data)
-      console.log("Trading platform user creation payload:", {
-        ...createUserPayload,
-        password: "***", // Hide password in logs
-      });
-
-       await this.loginAsAdmin();
+    
+console.log(" call ark create user api ")
+      await this.loginAsAdmin();
       const response = await fetch(`${this.baseUrl}/admin/public/api/v1/user`, {
         method: "POST",
         headers: {
@@ -598,8 +588,11 @@ class TradingPlatformApiService {
         body: JSON.stringify(createUserPayload),
       });
 
-      console.log("response", response);
+    
+
+      
       if (!response.ok) {
+        console.log(" response is not ok" ,response.ok)
         const errorText = await response.text();
         console.error(
           "Trading platform user creation failed:",
@@ -609,9 +602,9 @@ class TradingPlatformApiService {
 
         // Check if session expired and retry once
         if (response.status === 401) {
-          console.log("Session expired detected, retrying with fresh token...");
+         console.log(" response status 401")
           const newToken = await this.getValidAdminToken();
-          console.log("newToken", newToken);
+         
           const retryResponse = await fetch(
             `${this.baseUrl}/admin/public/api/v1/user`,
             {
@@ -641,9 +634,7 @@ class TradingPlatformApiService {
             };
           }
 
-          console.log(
-            `Trading platform user created successfully after retry: ID ${retryData.data.accountId}, Username: ${retryData.data.username}`
-          );
+        
           return {
             success: true,
             tradingPlatformUserId: retryData.data.userId,
@@ -659,6 +650,7 @@ class TradingPlatformApiService {
       }
 
       const data: TradingPlatformUserCreateResponse = await response.json();
+console.log(" TradingPlatformUserCreateResponse data",)
 
       if (!data.success) {
         console.error("Trading platform user creation failed:", data.message);
@@ -668,9 +660,9 @@ class TradingPlatformApiService {
         };
       }
 
-      console.log(
-        `Trading platform user created successfully: ID ${data.data.accountId}, Username: ${data.data.username}`
-      );
+     
+
+      console.log(" final respomse TradingPlatformUserCreateResponse" ,data)
 
       return {
         success: true,
@@ -703,7 +695,7 @@ class TradingPlatformApiService {
     try {
       let token = await this.getValidAdminToken();
 
-      console.log("userIds", userIds)
+
       const query = userIds.toString();
       const url = `${this.baseUrl}/financialStandings/public/api/v1/userFinancials?userIds=${encodeURIComponent(
         query
@@ -717,7 +709,7 @@ class TradingPlatformApiService {
       });
 
       if(response.status === 401) {
-        console.log("Session expired, refreshing token...");
+   
         // Re-login to get a fresh token
         await this.loginAsAdmin();
         token = this.adminToken!;
@@ -764,7 +756,7 @@ class TradingPlatformApiService {
         });
       }
 
-      console.log("Trading platform getCurrentBalance successful:", balances);
+  
       return {
         success: true,
         balances,
@@ -802,11 +794,11 @@ class TradingPlatformApiService {
   }> {
     try {
       // Force a fresh login before every deposit request to avoid stale tokens
-      console.log("Forcing fresh admin login for deposit request...");
+      
       await this.loginAsAdmin();
       const token = this.adminToken!;
 
-      console.log('this.adminToken', this.adminToken)
+
 
       const depositRequestPayload: TradingPlatformDepositRequest = {
         amount: depositData.amount,
@@ -815,10 +807,7 @@ class TradingPlatformApiService {
         userId: depositData.tradingPlatformUserId,
       };
 
-      console.log(
-        "Trading platform deposit request payload:",
-        depositRequestPayload
-      );
+     
 
       const response = await fetch(
         `${this.baseUrl}/admin/public/api/v1/depositRequest`,
@@ -855,9 +844,6 @@ class TradingPlatformApiService {
         };
       }
 
-      console.log(
-        `Trading platform deposit request created successfully: Request ID ${data.dto.requestId}`
-      );
 
       return {
         success: true,
@@ -904,7 +890,6 @@ class TradingPlatformApiService {
         status: statusCode,
       };
 
-      console.log("Trading platform deposit handle payload:", payload);
 
       const response = await fetch(
         `${this.baseUrl}/admin/public/api/v1/depositRequest/handle`,
@@ -927,8 +912,8 @@ class TradingPlatformApiService {
         );
 
         // Check if session expired and retry once
-        if (response.status === 40) {
-          console.log("Session expired detected, retrying with fresh token...");
+        if (response.status === 401) {
+          
           const newToken = await this.getValidAdminToken();
           const retryResponse = await fetch(
             `${this.baseUrl}/admin/public/api/v1/depositRequest/handle`,
@@ -951,10 +936,7 @@ class TradingPlatformApiService {
           }
 
           const retryResult = await retryResponse.json();
-          console.log(
-            "Trading platform deposit handle result after retry:",
-            retryResult
-          );
+         
           return {
             success: true,
             message: `Deposit ${
@@ -970,7 +952,7 @@ class TradingPlatformApiService {
       }
 
       const result = await response.json();
-      console.log("Trading platform deposit handle result:", result);
+     
 
       return {
         success: true,
@@ -1019,11 +1001,6 @@ class TradingPlatformApiService {
         secondPassword: secondPassword,
       };
 
-      console.log("Trading platform cash request payload:", {
-        ...cashRequestPayload,
-        secondPassword: "***", // Hide password in logs
-      });
-
       const response = await fetch(
         `${this.baseUrl}/trading/public/api/v1/cashRequest`,
         {
@@ -1037,7 +1014,6 @@ class TradingPlatformApiService {
       );
 
 
-      console.log('Trading platform cash request ', response)
       if (!response.ok) {
         const errorText = await response.text();
         console.error(
@@ -1048,7 +1024,7 @@ class TradingPlatformApiService {
 
         // Check if session expired and retry once
         if (response.status === 401) {
-          console.log("Session expired detected, retrying with fresh token...");
+     
           const newToken = await this.getValidAdminToken();
           const retryResponse = await fetch(
             `${this.baseUrl}/trading/public/api/v1/cashRequest`,
@@ -1079,9 +1055,7 @@ class TradingPlatformApiService {
             };
           }
 
-          console.log(
-            `Trading platform cash request created successfully after retry: Request ID ${retryData.dto.requestID}`
-          );
+          
           return {
             success: true,
             requestId: retryData.dto.requestID,
@@ -1106,9 +1080,7 @@ class TradingPlatformApiService {
         };
       }
 
-      console.log(
-        `Trading platform cash request created successfully: Request ID ${data.dto.requestID}`
-      );
+    
 
       return {
         success: true,
@@ -1155,7 +1127,7 @@ class TradingPlatformApiService {
         status: statusCode,
       };
 
-      console.log("Trading platform cash delivery payload:", payload);
+   
 
       // Use different endpoints for approve vs reject
       const endpoint =
@@ -1183,8 +1155,8 @@ class TradingPlatformApiService {
         );
 
         // Check if session expired and retry once
-        if (response.status === 40) {
-          console.log("Session expired detected, retrying with fresh token...");
+        if (response.status === 401) {
+          
           const newToken = await this.getValidAdminToken();
           const retryResponse = await fetch(endpoint, {
             method: method,
@@ -1205,10 +1177,7 @@ class TradingPlatformApiService {
 
           const retryResult: TradingPlatformCashDeliveryResponse =
             await retryResponse.json();
-          console.log(
-            "Trading platform cash delivery result after retry:",
-            retryResult
-          );
+         
           return {
             success: true,
             message: `Withdrawal ${
@@ -1225,7 +1194,7 @@ class TradingPlatformApiService {
       }
 
       const result: TradingPlatformCashDeliveryResponse = await response.json();
-      console.log("Trading platform cash delivery result:", result);
+      
 
       return {
         success: true,
@@ -1308,10 +1277,6 @@ class TradingPlatformApiService {
         trxAmount: transferData.amount,
       };
 
-      console.log("Trading platform money transfer payload:", {
-        ...transferPayload,
-        secondPassword: "***", // Hide password in logs
-      });
 
       const response = await fetch(
         `${this.baseUrl}/admin/public/api/v1/money/transaction`,
@@ -1334,8 +1299,8 @@ class TradingPlatformApiService {
         );
 
         // Check if session expired and retry once
-        if (response.status === 40) {
-          console.log("Session expired detected, retrying with fresh token...");
+        if (response.status === 401) {
+      
           const newToken = await this.getValidAdminToken();
           const retryResponse = await fetch(
             `${this.baseUrl}/admin/public/api/v1/money/transaction`,
@@ -1369,9 +1334,7 @@ class TradingPlatformApiService {
           const transferDirection = transferData.isWithdrawal
             ? "from user to main account"
             : "from main account to user";
-          console.log(
-            `Trading platform money transfer successful after retry: ${transferData.amount} ${transferData.currency} transferred ${transferDirection}`
-          );
+         
           return {
             success: true,
             message: `Money transfer completed successfully on trading platform after retry (${transferDirection})`,
@@ -1398,9 +1361,7 @@ class TradingPlatformApiService {
       const transferDirection = transferData.isWithdrawal
         ? "from user to main account"
         : "from main account to user";
-      console.log(
-        `Trading platform money transfer successful: ${transferData.amount} ${transferData.currency} transferred ${transferDirection}`
-      );
+    
 
       return {
         success: true,
@@ -1445,6 +1406,8 @@ class TradingPlatformApiService {
         }
       );
 
+   
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error(
@@ -1454,8 +1417,8 @@ class TradingPlatformApiService {
         );
 
         // Check if session expired and retry once
-        if (response.status === 40) {
-          console.log("Session expired detected, retrying with fresh token...");
+        if (response.status === 401) {
+        
           const newToken = await this.getValidAdminToken();
           const retryResponse = await fetch(
             `${this.baseUrl}/trading/public/api/v1/userFinancials/${tradingPlatformUserId}`,
@@ -1485,6 +1448,8 @@ class TradingPlatformApiService {
             };
           }
 
+
+  
          
           return {
             success: true,
@@ -1512,6 +1477,7 @@ class TradingPlatformApiService {
       }
 
      
+
       return {
         success: true,
         balance: data.data.balance,

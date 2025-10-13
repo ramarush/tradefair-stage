@@ -69,13 +69,12 @@ export async function POST(request: NextRequest) {
     // Generate unique username for trading platform
     const tradingUsername = `${email}`;
 
-    let newUser;
-    let tradingPlatformResult = null;
+    let newUser: any;
+    let tradingPlatformResult: any = null;
 
-    // Use Prisma transaction to ensure atomicity
+    // Step 1: Create user in Prisma DB inside transaction
     await prisma.$transaction(async (tx) => {
-      // Create new user
-      newUser = await prisma.user.create({
+      newUser = await tx.user.create({
         data: {
           email,
           phone: phone || null,
@@ -92,36 +91,49 @@ export async function POST(request: NextRequest) {
           campaignId: campaign_id || null,
         },
       });
-      // Create user on trading platform - this must succeed for signup to complete
-      tradingPlatformResult = await tradingPlatformApi.createUser({
-        userId: newUser.id,
-        firstName: first_name,
-        lastName: last_name,
-        username: tradingUsername,
-        currency: userCurrency,
-        mobile: phone || '',
-        email: email,
-        password: password,
-        country: userCurrency === 'INR' ? 'India' : 'United States',
-      });
-      console.log("Trading platform user creation result:", tradingPlatformResult); 
 
-      if (!tradingPlatformResult.success || !tradingPlatformResult.tradingPlatformUserId) {
-        console.error('Trading platform user creation failed:', tradingPlatformResult.message);
-        throw new Error(`Trading platform user creation failed: ${tradingPlatformResult.message}`);
-      }
-
-      // Update user with trading platform user ID
-      await tx.user.update({
-        where: { id: newUser.id },
-        data: {
-          tradingPlatformUserId: tradingPlatformResult.tradingPlatformUserId || null,
-          tradingPlatformAccountId: tradingPlatformResult.tradingPlatformAccountId || null,
-        },
-      });
-      newUser.tradingPlatformUserId = tradingPlatformResult.tradingPlatformUserId || null;
-      newUser.tradingPlatformAccountId = tradingPlatformResult.tradingPlatformAccountId || null;
+      console.log("✅ User created in Prisma DB:", newUser);
     });
+
+    // Step 2: Create user on trading platform outside transaction
+    tradingPlatformResult = await tradingPlatformApi.createUser({
+      userId: newUser.id,
+      firstName: first_name,
+      lastName: last_name,
+      username: tradingUsername,
+      currency: userCurrency,
+      mobile: phone || '',
+      email: email,
+      password: password,
+      country: userCurrency === 'INR' ? 'India' : 'United States',
+    });
+
+    console.log("✅ Trading platform response:", tradingPlatformResult);
+
+    if (
+      !tradingPlatformResult.success ||
+      !tradingPlatformResult.tradingPlatformUserId
+    ) {
+      // Optionally delete the user if trading platform creation fails
+      await prisma.user.delete({ where: { id: newUser.id } });
+      return NextResponse.json(
+        { error: `Trading platform user creation failed: ${tradingPlatformResult.message}` },
+        { status: 502 }
+      );
+    }
+
+    // Step 3: Update user with trading platform info outside transaction
+    newUser = await prisma.user.update({
+      where: { id: newUser.id },
+      data: {
+        tradingPlatformUserId:
+          tradingPlatformResult.tradingPlatformUserId || null,
+        tradingPlatformAccountId:
+          tradingPlatformResult.tradingPlatformAccountId || null,
+      },
+    });
+
+    console.log("+++++++++++++++++++++++✅ Updated user with trading platform info:", newUser);
 
     // Generate JWT token
     const token = generateToken(newUser!.id);
