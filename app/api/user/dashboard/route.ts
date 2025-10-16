@@ -18,28 +18,76 @@ export async function GET(request: NextRequest) {
     const decoded = verifyToken(token);
     
     if (!decoded) {
-      return NextResponse.json(
+      return NextResponse.json( 
         { error: 'Invalid or expired token' },
         { status: 401 }
       );
     }
 
-    // Get user info
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        isActive: true,
-        balance: true,
-        currency: true,
-        tradingPlatformUserId: true,
-        tradingPlatformAccountId: true,
-      },
-    });
+    const userId = decoded.userId;
 
+    // Fire all independent queries concurrently
+    const [
+      user,
+      depositStats,
+      withdrawalStats,
+      pendingDeposits,
+      pendingWithdrawals,
+      pendingDepositAmount,
+      pendingWithdrawalAmount,
+    ] = await Promise.all([
+      // User info
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          isActive: true,
+          balance: true,
+          currency: true,
+          tradingPlatformUserId: true,
+          tradingPlatformAccountId: true,
+        },
+      }),
+
+      // Deposit stats
+      prisma.transaction.aggregate({
+        where: { userId, type: 'deposit', status: 'completed' },
+        _sum: { amount: true },
+        _count: { id: true },
+      }),
+
+      // Withdrawal stats
+      prisma.transaction.aggregate({
+        where: { userId, type: 'withdrawal', status: 'completed' },
+        _sum: { amount: true },
+        _count: { id: true },
+      }),
+
+      // Pending deposits count
+      prisma.transaction.count({
+        where: { userId, type: 'deposit', status: 'pending' },
+      }),
+
+      // Pending withdrawals count
+      prisma.transaction.count({
+        where: { userId, type: 'withdrawal', status: 'pending' },
+      }),
+
+      // Pending deposit amount
+      prisma.transaction.aggregate({
+        where: { userId, type: 'deposit', status: 'pending' },
+        _sum: { amount: true },
+      }),
+
+      // Pending withdrawal amount
+      prisma.transaction.aggregate({
+        where: { userId, type: 'withdrawal', status: 'pending' },
+        _sum: { amount: true },
+      }),
+    ]);
 
     if (!user || !user.isActive) {
       return NextResponse.json(
@@ -48,108 +96,38 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Fetch real-time balance in parallel with response preparation
+    const tradingPlatformUserId = user.tradingPlatformUserId || 0;
+    const balancePromise = tradingPlatformApi
+      .getCurrentBalance(tradingPlatformUserId)
+      .then((res) => (res.success ? res.balances?.[tradingPlatformUserId] || 0 : 0))
+      .catch(() => 0);
 
-    const tradingPlatformUserId = user.tradingPlatformUserId;
+    // Prepare stats object while balance is being fetched
+    const stats = {
+      totalDeposits: Number(depositStats._sum.amount || 0),
+      totalWithdrawals: Number(withdrawalStats._sum.amount || 0),
+      pendingDeposits,
+      pendingWithdrawals,
+      pendingDepositAmount: Number(pendingDepositAmount._sum.amount || 0),
+      pendingWithdrawalAmount: Number(pendingWithdrawalAmount._sum.amount || 0),
+      balance: Number(user.balance || 0), // fallback to DB balance
+      currency: user.currency || 'USD',
+      currency_symbol: user.currency === 'INR' ? '₹' : '$',
+    };
 
-    const userId = decoded.userId;
+    // Await real-time balance
+    const currentBalance = await balancePromise;
 
-    // Get deposit statistics from transactions
-    const depositStats = await prisma.transaction.aggregate({
-      where: { 
-        userId,
-        type: 'deposit',
-        status: 'completed'
-      },
-      _sum: { amount: true },
-      _count: { id: true },
-    });
+    // Update balance in stats
+    stats.balance = Number(currentBalance);
 
-    const pendingDeposits = await prisma.transaction.count({
-      where: { 
-        userId,
-        type: 'deposit',
-        status: 'pending'
-      },
-    });
+    // Fire-and-forget DB update (no await)
+    prisma.user
+      .update({ where: { id: userId }, data: { balance: currentBalance } })
+      .catch(() => {}); // silent fail
 
-    const pendingDepositAmount = await prisma.transaction.aggregate({
-      where: { 
-        userId,
-        type: 'deposit',
-        status: 'pending'
-      },
-      _sum: { amount: true },
-    });
-
-    // Get withdrawal statistics from transactions
-    const withdrawalStats = await prisma.transaction.aggregate({
-      where: { 
-        userId,
-        type: 'withdrawal',
-        status: 'completed'
-      },
-      _sum: { amount: true },
-      _count: { id: true },
-    });
-
-    const pendingWithdrawals = await prisma.transaction.count({
-      where: { 
-        userId,
-        type: 'withdrawal',
-        status: 'pending'
-      },
-    });
-
-    const pendingWithdrawalAmount = await prisma.transaction.aggregate({
-      where: { 
-        userId,
-        type: 'withdrawal',
-        status: 'pending'
-      },
-      _sum: { amount: true },
-    });
-
-    // Get recent deposits (last 5)
-
-    console.log('tradingPlatformUserId', tradingPlatformUserId)
-    
-const getRealTimeuserCurrentBalance = async (tradingPlatformUserId: number) => {
-  try {
-    const response = await tradingPlatformApi.getCurrentBalance(tradingPlatformUserId);
-    console.log("response" ,response)
-    if (response.success) {
-      return response.balances?.[tradingPlatformUserId] || 0;
-    }
-  } catch (error) {
-    console.error('Error fetching current balance:', error);
-  }
-  return 0;
-}
-
-const currentBalance = await getRealTimeuserCurrentBalance(tradingPlatformUserId || 0);
-
-    // Update user balance in DB with real-time value
-    await prisma.user.update({
-      where: { id: userId },
-      data: { balance: currentBalance },
-    });
-
-  
-    return NextResponse.json({
-      stats: {
-        totalDeposits: Number(depositStats._sum.amount || 0),
-        totalWithdrawals: Number(withdrawalStats._sum.amount || 0),
-        pendingDeposits: pendingDeposits,
-        pendingWithdrawals: pendingWithdrawals,
-        pendingDepositAmount: Number(pendingDepositAmount._sum.amount || 0),
-        pendingWithdrawalAmount: Number(pendingWithdrawalAmount._sum.amount || 0),
-        balance: Number(currentBalance || 0),
-        currency: user.currency || 'USD',
-        currency_symbol: user.currency === 'INR' ? '₹' : '$',
-      },
-      
-    });
-
+    return NextResponse.json({ stats });
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     return NextResponse.json(

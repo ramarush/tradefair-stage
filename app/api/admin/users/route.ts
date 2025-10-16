@@ -110,15 +110,7 @@ export async function GET(request: NextRequest) {
         }
       }, { status: 200 });
 
-      return NextResponse.json({
-        users,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit)
-        }
-      }, { status: 200 });
+      
 
     } catch (prismaError: unknown) {
       console.error('Prisma error:', prismaError);

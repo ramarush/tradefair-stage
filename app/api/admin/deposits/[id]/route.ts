@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateUser } from '@/lib/auth';
@@ -31,20 +32,29 @@ export async function PUT(
     }
 
     // Prepare update data
-    const updateData: any = {
+    const updateData: {
+      status: string;
+      adminNotes: string | null;
+      approvedAt?: Date;
+      closingBalance?: Decimal;
+    } = {
       status,
       adminNotes: admin_notes || null
     };
 
+
+    console.log("++++++++++++++++++++++++++ admin side deposit approve api  status" ,status)
     // Set approvedAt timestamp when status is 'completed' (client requirement)
     if (status === 'completed') {
       updateData.approvedAt = new Date();
     }
 
     // Use atomic transaction to prevent double approval and ensure balance is credited exactly once
-    const result = await prisma.$transaction(async (tx) => {
-      // First, get the current transaction to check its status and get user info
-      const currentTransaction = await tx.transaction.findUnique({
+    // Step 1: Validate and fetch the transaction outside the transaction
+    console.log("++++++++++++++++++++++++++ admin side deposit approve api step 1 resolvedParams.id" ,resolvedParams.id)
+    let currentTransaction;
+    try {
+      currentTransaction = await prisma.transaction.findUnique({
         where: { 
           id: parseInt(resolvedParams.id),
           type: 'deposit'
@@ -68,24 +78,32 @@ export async function PUT(
           }
         }
       });
+    } catch (dbError) {
+      console.error('Database error while fetching transaction:', dbError);
+      throw new Error('Database error: Unable to fetch deposit transaction');
+    }
 
-      if (!currentTransaction) {
-        throw new Error('Deposit transaction not found');
-      }
+    if (!currentTransaction) {
+      throw new Error('Deposit transaction not found');
+    }
 
-      // Prevent double approval - if already completed, don't allow re-approval
-      if (currentTransaction.status === 'completed' && status === 'completed') {
-        throw new Error('This deposit has already been approved and cannot be approved again');
-      }
+    // Prevent double approval - if already completed, don't allow re-approval
+    if (currentTransaction.status === 'completed' && status === 'completed') {
+      throw new Error('This deposit has already been approved and cannot be approved again');
+    }
 
-      // Handle trading platform integration for completed status - use transfer money API
-      if (status === 'completed' && currentTransaction.user.tradingPlatformAccountId && currentTransaction.user.tradingPlatformUserId) {
-        const transferResult = await tradingPlatformApi.transferMoney({
+
+    console.log("++++++++++++++++++++++++++++ call trading platform API step 2 ")
+    // Step 2: Only proceed with trading platform API if no database/code errors so far
+    let transferResult = null;
+    if (status === 'completed' && currentTransaction.user.tradingPlatformAccountId && currentTransaction.user.tradingPlatformUserId) {
+      try {
+        transferResult = await tradingPlatformApi.transferMoney({
           receiverAccountId: currentTransaction.user.tradingPlatformAccountId,
-          senderUserId: currentTransaction.user.tradingPlatformUserId, // This will be overridden by main account user ID in the method
+          senderUserId: currentTransaction.user.tradingPlatformUserId,
           amount: Number(currentTransaction.amount),
           currency: currentTransaction.user.currency || 'USD',
-          isWithdrawal: false // This is a deposit (main account to user account)
+          isWithdrawal: false
         });
 
         if (!transferResult.success) {
@@ -93,8 +111,17 @@ export async function PUT(
         }
 
         console.log('Trading platform money transfer successful:', transferResult.message);
+      } catch (apiError) {
+        console.error('Trading platform API error:', apiError);
+        // Re-throw to prevent proceeding to database update
+        throw apiError;
       }
+    }
 
+
+    console.log("++++++++++++++++++++ update database user balance step 3 ")
+    // Step 3: Final atomic database update
+    const result = await prisma.$transaction(async (tx) => {
       // Calculate new closing balance if approving the deposit
       let newClosingBalance = currentTransaction.closingBalance || 0;
       
@@ -107,7 +134,7 @@ export async function PUT(
         
         if (currentUser) {
           // Calculate new closing balance after crediting the deposit
-          newClosingBalance = Number(currentUser.balance) + Number(currentTransaction.amount);
+          newClosingBalance = currentUser.balance.add(currentTransaction.amount);
         }
         
         // Credit the user's balance
@@ -146,6 +173,8 @@ export async function PUT(
 
       return { updatedDeposit, userInfo: currentTransaction.user };
     });
+
+    console.log("++++++++++++++++++ update user balance successfully")
 
     // Send email notification if deposit was approved
     if (status === 'completed' && result.userInfo) {

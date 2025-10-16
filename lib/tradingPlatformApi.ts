@@ -681,6 +681,86 @@ console.log(" TradingPlatformUserCreateResponse data",)
     }
   }
 
+
+  /**
+   * Delete a user on the trading platform
+   */
+  async deleteUser(tradingPlatformUserId: number): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    try {
+      const token = await this.getValidAdminToken();
+
+      const response = await fetch(
+        `${this.baseUrl}/admin/public/api/v1/user/${tradingPlatformUserId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(
+          "Trading platform user deletion failed:",
+          response.status,
+          errorText
+        );
+
+        // Check if session expired and retry once
+        if (response.status === 401) {
+          const newToken = await this.getValidAdminToken();
+          const retryResponse = await fetch(
+            `${this.baseUrl}/admin/public/api/v1/user/${tradingPlatformUserId}`,
+            {
+              method: "DELETE",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${newToken}`,
+              },
+            }
+          );
+
+          if (!retryResponse.ok) {
+            const retryErrorText = await retryResponse.text();
+            return {
+              success: false,
+              error: `Trading platform user deletion failed after retry: ${retryResponse.status} ${retryErrorText}`,
+            };
+          }
+
+          return {
+            success: true,
+            message: "User deleted successfully on trading platform after retry",
+          };
+        }
+
+        return {
+          success: false,
+          error: `Trading platform user deletion failed: ${response.status} ${errorText}`,
+        };
+      }
+
+      return {
+        success: true,
+        message: "User deleted successfully on trading platform",
+      };
+    } catch (error) {
+      console.error("Error deleting user on trading platform:", error);
+      return {
+        success: false,
+        error: `Error deleting user on trading platform: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      };
+    }
+  }
+
   /**
    * Get current balance for a list of user IDs from trading platform
    */
@@ -807,7 +887,7 @@ console.log(" TradingPlatformUserCreateResponse data",)
         userId: depositData.tradingPlatformUserId,
       };
 
-     
+     console.log("++++++++++++++++++++ createDepositReq on trading platform " )
 
       const response = await fetch(
         `${this.baseUrl}/admin/public/api/v1/depositRequest`,
@@ -821,6 +901,7 @@ console.log(" TradingPlatformUserCreateResponse data",)
         }
       );
 
+      console.log("++++++++++++++++++++ createDepositReq on trading platform response ",response.ok)
       if (!response.ok) {
         const errorText = await response.text();
         console.error(
@@ -843,8 +924,9 @@ console.log(" TradingPlatformUserCreateResponse data",)
           message: `Trading platform deposit request failed: ${data.message}`,
         };
       }
-
-
+      
+      console.log("++++++++++++++++++ trading platform data" ,data)
+      
       return {
         success: true,
         requestId: data.dto.requestId,
@@ -1000,7 +1082,7 @@ console.log(" TradingPlatformUserCreateResponse data",)
         userId: cashData.tradingPlatformUserId,
         secondPassword: secondPassword,
       };
-
+console.log("+++++++++++++++++++++++ call tradingPlatform api type withdrawal request", cashRequestPayload)
       const response = await fetch(
         `${this.baseUrl}/trading/public/api/v1/cashRequest`,
         {
@@ -1024,7 +1106,7 @@ console.log(" TradingPlatformUserCreateResponse data",)
 
         // Check if session expired and retry once
         if (response.status === 401) {
-     
+     console.log("+++++++++++++++++++++++ expire token recall login api ")
           const newToken = await this.getValidAdminToken();
           const retryResponse = await fetch(
             `${this.baseUrl}/trading/public/api/v1/cashRequest`,
@@ -1049,6 +1131,7 @@ console.log(" TradingPlatformUserCreateResponse data",)
           const retryData: TradingPlatformCashResponse =
             await retryResponse.json();
           if (!retryData.success) {
+            console.log("++++++++++++++++++++++++++++++++ trading platform cash request api failed", retryData.message)
             return {
               success: false,
               message: `Trading platform cash request failed after retry: ${retryData.message}`,
@@ -1071,6 +1154,8 @@ console.log(" TradingPlatformUserCreateResponse data",)
       }
 
       const data: TradingPlatformCashResponse = await response.json();
+
+console.log("+++++++++++++++++++++++ trading platform cash request api success", data)
 
       if (!data.success) {
         console.error("Trading platform cash request failed:", data.message);

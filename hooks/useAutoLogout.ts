@@ -23,7 +23,6 @@ export function useAutoLogout({ timeoutMinutes = 3, onLogout }: UseAutoLogoutOpt
     // Redirect to login
     router.push('/login');
   }, [router, onLogout]);
-
   const resetTimer = useCallback(() => {
     lastActivityRef.current = Date.now();
     

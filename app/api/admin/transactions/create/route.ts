@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { authenticateUser } from '@/lib/auth';
 import { verifyTOTP } from '@/lib/totp';
 import tradingPlatformApi from '@/lib/tradingPlatformApi';
@@ -10,11 +10,22 @@ export async function POST(request: NextRequest) {
   try {
     // Verify admin authentication
     const authResult = await authenticateUser(request, ['admin']);
+
+    console.log("+++++++++++++++++ authResult", authResult)
     if (!authResult.success || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      // Retry authentication once on first failure
+      const retryAuthResult = await authenticateUser(request, ['admin']);
+      console.log("+++++++++++++++++ retryAuthResult", retryAuthResult)
+      if (!retryAuthResult.success || !retryAuthResult.user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      // Use the retry result if successful
+      authResult.success = retryAuthResult.success;
+      authResult.user = retryAuthResult.user;
     }
 
     const adminUser = authResult.user;
+    console.log("+++++++++++++++ adminUser", adminUser)
 
     const body = await request.json();
     const { userId, amount, type, balanceType, notes, otp } = body;
@@ -136,7 +147,7 @@ export async function POST(request: NextRequest) {
 
       let newBalance: typeof currentUser.balance;
       let newBonusBalance: typeof currentUser.bonusBalance;
-      let updateData: any = {};
+      const updateData: { balance?: Prisma.Decimal; bonusBalance?: Prisma.Decimal } = {};
 
       // Calculate new balance based on balance type
       if (balanceType === 'wallet') {

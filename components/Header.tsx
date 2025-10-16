@@ -9,7 +9,7 @@ import { Menu, X } from "lucide-react"; // ✅ Hamburger & close icons
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [user, setUser] = useState<{ id: string; email: string; first_name: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; email: string; first_name: string; is_admin?: boolean } | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -50,10 +50,13 @@ const Header = () => {
   const handleMouseEnter = () => setDropdownOpen(true);
   const handleMouseLeave = () => setDropdownOpen(false);
 
+  // Determine z-index class based on user role
+  const zIndexClass = user?.is_admin ? '-z-10' : 'z-50';
+
   return (
     <header
-      className={`w-full py-2 md:py-1 fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? "bg-[#ffb80c] shadow-md" : "bg-[#ffb80c]/90"
+      className={`w-full py-2 md:py-1 fixed top-0 left-0 right-0  transition-all duration-300 ${zIndexClass} ${
+        scrolled ? "bg-[#ffb80c] shadow-md  " : "bg-[#ffb80c]/90 "
       }`}
     >
       <div className="container mx-auto px-4 flex items-center justify-between relative">

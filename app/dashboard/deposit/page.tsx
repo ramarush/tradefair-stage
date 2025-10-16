@@ -277,53 +277,56 @@ export default function DepositRequest() {
           body: formDataUpload,
         });
         
+
+        console.log("++++++++++++++++++++ uploadResponse image " ,uploadResponse.ok)
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
           mediaId = uploadData.media.id;
+          
+          // Second API call: create transaction after successful upload
+          const transactionData = {
+            type: 'deposit',
+            amount: amount,
+            mtrNumber: formData.utrNumber,
+            notes: formData.notes,
+            mediaId: mediaId,
+            paymentMethodId: selectedPaymentMethod?.id,
+          };
+          
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/transactions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(transactionData),
+          });
+
+          if (response.ok) {
+            const responseData = await response.json();
+            setSuccess(true);
+            // Reset form
+            setCurrentStep('amount');
+            setAmount(0);
+            setSelectedPaymentMethod(null);
+            setAvailablePaymentMethods([]);
+            setQrCodeData(null);
+            setExpirationTime(null);
+            setFormData({
+              amount: 0,
+              utrNumber: '',
+              notes: '',
+            });
+            setPaymentProof(null);
+            setImagePreview(null);
+          } else {
+            const errorData = await response.json();
+            setError(errorData.error || 'Failed to submit deposit request');
+          }
         } else {
           const uploadError = await uploadResponse.text();
           throw new Error(`Failed to upload payment proof: ${uploadError}`);
         }
-      }
-
-      const transactionData = {
-        type: 'deposit',
-        amount: amount,
-        mtrNumber: formData.utrNumber,
-        notes: formData.notes,
-        mediaId: mediaId,
-        paymentMethodId: selectedPaymentMethod?.id,
-      };
-      
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/transactions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(transactionData),
-      });
-
-      if (response.ok) {
-        const responseData = await response.json();
-        setSuccess(true);
-        // Reset form
-        setCurrentStep('amount');
-        setAmount(0);
-        setSelectedPaymentMethod(null);
-        setAvailablePaymentMethods([]);
-        setQrCodeData(null);
-        setExpirationTime(null);
-        setFormData({
-          amount: 0,
-          utrNumber: '',
-          notes: '',
-        });
-        setPaymentProof(null);
-        setImagePreview(null);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to submit deposit request');
       }
     } catch (error) {
       console.error('Error submitting deposit:', error);

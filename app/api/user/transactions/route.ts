@@ -1,5 +1,7 @@
+import { CheckIcon } from '@heroicons/react/24/outline';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { authenticateUser } from '@/lib/auth';
 import tradingPlatformApi from '@/lib/tradingPlatformApi';
 
@@ -13,121 +15,127 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's currency information
-    const userWithCurrency = await prisma.user.findUnique({
-      where: { id: authResult.user.id },
-      select: { currency: true }
-    });
+    // Parse query params once
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type');
+    const status = searchParams.get('status');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10')));
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
+
+    // Build where clause
+    const whereClause: Prisma.TransactionWhereInput = {
+      userId: authResult.user.id,
+      ...(type && type !== 'all' && { type }),
+      ...(status && status !== 'all' && { status }),
+      ...(dateFrom || dateTo
+        ? {
+            createdAt: {
+              ...(dateFrom && { gte: new Date(dateFrom) }),
+              ...(dateTo && { lte: new Date(dateTo + 'T23:59:59.999Z') }),
+            },
+          }
+        : {}),
+    };
+
+    // Single aggregated query: user currency + transactions + total count
+    const [userWithCurrency, transactions, total] = await prisma.$transaction([
+      prisma.user.findUnique({
+        where: { id: authResult.user.id },
+        select: { currency: true },
+      }),
+      prisma.transaction.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          status: true,
+          notes: true,
+          mtrNumber: true,
+          adminNotes: true,
+          approvedAt: true,
+          closingBalance: true,
+          createdAt: true,
+          updatedAt: true,
+          bankAccount: {
+            select: {
+              id: true,
+              bankName: true,
+              accountNumber: true,
+              accountHolder: true,
+            },
+          },
+          media: {
+            select: {
+              id: true,
+              url: true,
+              originalName: true,
+            },
+          },
+          paymentMethod: {
+            select: {
+              id: true,
+              type: true,
+              accountHolderName: true,
+              bankName: true,
+              accountNumber: true,
+              ifscCode: true,
+              vpaAddress: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: (page - 1) * limit,
+      }),
+      prisma.transaction.count({ where: whereClause }),
+    ]);
 
     const userCurrency = userWithCurrency?.currency || 'USD';
     const currencySymbol = userCurrency === 'INR' ? '₹' : '$';
 
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type'); // 'deposit', 'withdrawal', or null for all
-    const status = searchParams.get('status');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const dateFrom = searchParams.get('dateFrom');
-    const dateTo = searchParams.get('dateTo');
-    
-    const offset = (page - 1) * limit;
-
-    const whereClause: any = {
-      userId: authResult.user.id,
-    };
-
-    if (type && type !== 'all') {
-      whereClause.type = type;
-    }
-
-    if (status && status !== 'all') {
-      whereClause.status = status;
-    }
-
-    // Date range filtering
-    if (dateFrom || dateTo) {
-      whereClause.createdAt = {};
-      if (dateFrom) {
-        whereClause.createdAt.gte = new Date(dateFrom);
-      }
-      if (dateTo) {
-        whereClause.createdAt.lte = new Date(dateTo + 'T23:59:59.999Z');
-      }
-    }
-
-    const transactions = await prisma.transaction.findMany({
-      where: whereClause,
-      include: {
-        bankAccount: true,
-        media: true,
-        paymentMethod: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: limit,
-      skip: offset,
-    });
-
-    const total = await prisma.transaction.count({
-      where: whereClause,
-    });
-
-    const totalPages = Math.ceil(total / limit);
-
     return NextResponse.json({
-      transactions: transactions.map(transaction => ({
-        id: transaction.id,
-        type: transaction.type,
-        amount: transaction.amount.toString(),
+      transactions: transactions.map((t) => ({
+        id: t.id,
+        type: t.type,
+        amount: t.amount.toString(),
         currency: userCurrency,
         currency_symbol: currencySymbol,
-        status: transaction.status,
-        notes: transaction.notes,
-        mtrNumber: transaction.mtrNumber,
-        bankId: transaction.bankAccount?.id,
-        bankAccount: transaction.bankAccount ? {
-          id: transaction.bankAccount.id,
-          bankName: transaction.bankAccount.bankName,
-          accountNumber: transaction.bankAccount.accountNumber,
-          accountHolder: transaction.bankAccount.accountHolder,
-        } : null,
-        media: transaction.media ? {
-          id: transaction.media.id,
-          url: transaction.media.url,
-          originalName: transaction.media.originalName,
-        } : null,
-        paymentMethod: transaction.paymentMethod ? {
-          id: transaction.paymentMethod.id,
-          type: transaction.paymentMethod.type,
-          account_holder_name: transaction.paymentMethod.accountHolderName,
-          // Bank fields
-          bank_name: transaction.paymentMethod.bankName,
-          account_number: transaction.paymentMethod.accountNumber ? `${transaction.paymentMethod.accountNumber}` : null,
-          ifsc_code: transaction.paymentMethod.ifscCode,
-          // UPI fields
-          vpa_address: transaction.paymentMethod.vpaAddress,
-        } : null,
-        adminNotes: transaction.adminNotes,
-        approvedAt: transaction.approvedAt?.toISOString(),
-        closingBalance: Number(transaction.closingBalance),
-        createdAt: transaction.createdAt.toISOString(),
-        updatedAt: transaction.updatedAt.toISOString(),
+        status: t.status,
+        notes: t.notes,
+        mtrNumber: t.mtrNumber,
+        bankId: t.bankAccount?.id ?? null,
+        bankAccount: t.bankAccount,
+        media: t.media,
+        paymentMethod: t.paymentMethod
+          ? {
+              id: t.paymentMethod.id,
+              type: t.paymentMethod.type,
+              account_holder_name: t.paymentMethod.accountHolderName,
+              bank_name: t.paymentMethod.bankName,
+              account_number: t.paymentMethod.accountNumber ? `${t.paymentMethod.accountNumber}` : null,
+              ifsc_code: t.paymentMethod.ifscCode,
+              vpa_address: t.paymentMethod.vpaAddress,
+            }
+          : null,
+        adminNotes: t.adminNotes,
+        approvedAt: t.approvedAt?.toISOString() ?? null,
+        closingBalance: Number(t.closingBalance),
+        createdAt: t.createdAt.toISOString(),
+        updatedAt: t.updatedAt.toISOString(),
       })),
       pagination: {
         page,
         limit,
         total,
-        totalPages,
+        totalPages: Math.ceil(total / limit),
       },
     });
-
   } catch (error) {
     console.error('Error fetching transactions:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -202,27 +210,22 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-
-
-    // For withdrawals, check if user has sufficient balance (wallet + bonus)
+ 
     if (type === 'withdrawal') {
       const totalAvailableBalance = Number(user.balance) + Number(user.bonusBalance || 0);
-
-   
       if (totalAvailableBalance < Number(amount)) {
         return NextResponse.json({ 
           error: 'Insufficient balance for withdrawal.' 
         }, { status: 400 });
       }
-      
-      // Check if USD user has withdrawal exchange rate set
+
       if (user.currency === 'USD') {
         try {
           const systemSettings = await prisma.systemSettings.findFirst({
             orderBy: { createdAt: 'desc' }
           });
           
-          const settings = systemSettings?.settings as any;
+          const settings = systemSettings?.settings as { exchangeRates?: { usdWithdrawalRate?: number } };
           const exchangeRates = settings?.exchangeRates || {};
           if (!exchangeRates.usdWithdrawalRate) {
             return NextResponse.json({
@@ -237,8 +240,6 @@ export async function POST(request: NextRequest) {
         }
       }
     }
-
-    // For deposits, create request on trading platform first if user has trading platform account
     let tradingPlatformResult = null;
     if (type === 'deposit' && user.tradingPlatformUserId && paymentMethodId) {
       try {
@@ -267,28 +268,50 @@ export async function POST(request: NextRequest) {
     }
 
 
+    
+    
+    
    
-    // For withdrawals, create cash request on trading platform if user has trading platform account
     if (type === 'withdrawal' && user.tradingPlatformUserId) {
-      try {
-        tradingPlatformResult = await tradingPlatformApi.createCashRequest({
-          amount: amount,
-          comment: notes || `Withdrawal request for ${user.currency === 'INR' ? '₹' : '$'}${amount}`,
-          tradingPlatformUserId: user.tradingPlatformUserId,
-        });
+      const checkUserOpenTradeAccount = await tradingPlatformApi.getUserFinancials(user.tradingPlatformUserId);
 
-        if (!tradingPlatformResult.success) {
+
+      if (!checkUserOpenTradeAccount.success) {
+        return NextResponse.json(
+          { error: `Trading platform error: ${checkUserOpenTradeAccount.message}` },
+          { status: 400 }
+        );
+      }
+
+
+      if (checkUserOpenTradeAccount.data?.currentPL !== 0) {
+        return NextResponse.json(
+          { error: 'Withdrawal not allowed if positions are open. Please close all trades then place withdrawal request. Thankyou Team Tradefair' },
+          { status: 422 } 
+        );
+      }
+
+      if (checkUserOpenTradeAccount.data?.CheckIcon === 0) {
+        try {
+          tradingPlatformResult = await tradingPlatformApi.createCashRequest({
+            amount: amount,
+            comment: notes || `Withdrawal request for ${user.currency === 'INR' ? '₹' : '$'}${amount}`,
+            tradingPlatformUserId: user.tradingPlatformUserId,
+          });
+
+          if (!tradingPlatformResult.success) {
+            return NextResponse.json(
+              { error: `Trading platform error: ${tradingPlatformResult.message}` },
+              { status: 400 }
+            );
+          }
+        } catch (error) {
+          console.error('Trading platform cash request failed:', error);
           return NextResponse.json(
-            { error: `Trading platform error: ${tradingPlatformResult.message}` },
-            { status: 400 }
+            { error: 'Failed to create cash request on trading platform' },
+            { status: 500 }
           );
         }
-      } catch (error) {
-        console.error('Trading platform cash request failed:', error);
-        return NextResponse.json(
-          { error: 'Failed to create cash request on trading platform' },
-          { status: 500 }
-        );
       }
     }
 
@@ -320,6 +343,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Create transaction record with closing balance and trading platform request ID
+
       const transaction = await tx.transaction.create({
         data: {
           userId: authResult.user.id,
@@ -345,7 +369,7 @@ export async function POST(request: NextRequest) {
 
       // For withdrawals, deduct from both balance types as calculated
       if (type === 'withdrawal') {
-        const updateData: any = {};
+        const updateData: { balance?: { decrement: number }; bonusBalance?: { decrement: number } } = {};
         
         if (walletDeduction > 0) {
           updateData.balance = {

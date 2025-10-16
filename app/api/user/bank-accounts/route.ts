@@ -12,30 +12,46 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Use select to fetch only required fields
     const bankAccounts = await prisma.bankAccount.findMany({
       where: {
         userId: authResult.user.id,
         isActive: true,
       },
+      select: {
+        id: true,
+        bankName: true,
+        accountNumber: true,
+        accountHolder: true,
+        ifscCode: true,
+        routingNumber: true,
+        swiftCode: true,
+        accountType: true,
+        createdAt: true,
+        updatedAt: true,
+      },
       orderBy: {
         createdAt: 'desc',
       },
+      // Optional: limit results if user has many accounts
+      take: 50,
     });
 
-    return NextResponse.json({
-      bankAccounts: bankAccounts.map(account => ({
-        id: account.id,
-        bankName: account.bankName,
-        accountNumber: account.accountNumber,
-        accountHolder: account.accountHolder,
-        ifscCode: account.ifscCode,
-        routingNumber: account.routingNumber,
-        swiftCode: account.swiftCode,
-        accountType: account.accountType,
-        createdAt: account.createdAt.toISOString(),
-        updatedAt: account.updatedAt.toISOString(),
-      })),
-    });
+    // Precompute ISO strings in a single pass
+    const result = bankAccounts.map(account => ({
+      id: account.id,
+      bankName: account.bankName,
+      accountNumber: account.accountNumber,
+      accountHolder: account.accountHolder,
+      ifscCode: account.ifscCode,
+      routingNumber: account.routingNumber,
+      swiftCode: account.swiftCode,
+      accountType: account.accountType,
+      createdAt: account.createdAt.toISOString(),
+      updatedAt: account.updatedAt.toISOString(),
+    }));
+
+    return NextResponse.json({ bankAccounts: result });
 
   } catch (error) {
     console.error('Error fetching bank accounts:', error);

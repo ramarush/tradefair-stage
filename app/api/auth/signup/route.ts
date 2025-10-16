@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { hashPassword, validateEmail, validatePhone, validatePassword, generateToken } from '@/lib/auth';
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Generate unique username for trading platform
     const tradingUsername = `${email}`;
 
-    let newUser: any;
+     let newUser: any;
     let tradingPlatformResult: any = null;
 
     // Step 1: Create user in Prisma DB inside transaction
@@ -112,10 +113,21 @@ export async function POST(request: NextRequest) {
 
     if (
       !tradingPlatformResult.success ||
-      !tradingPlatformResult.tradingPlatformUserId
+      !tradingPlatformResult.tradingPlatformUserId ||
+      !tradingPlatformResult.tradingPlatformAccountId
     ) {
-      // Optionally delete the user if trading platform creation fails
+      // Attempt to delete the user from trading platform if userId exists
+      if (tradingPlatformResult.tradingPlatformUserId) {
+        try {
+          await tradingPlatformApi.deleteUser(tradingPlatformResult.tradingPlatformUserId);
+        } catch (deleteError) {
+          console.error('Failed to delete trading platform user:', deleteError);
+        }
+      }
+
+      // Delete the user from Prisma DB
       await prisma.user.delete({ where: { id: newUser.id } });
+
       return NextResponse.json(
         { error: `Trading platform user creation failed: ${tradingPlatformResult.message}` },
         { status: 502 }

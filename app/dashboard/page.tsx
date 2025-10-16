@@ -139,6 +139,8 @@ function CustomerDashboardContent({ refreshTrigger }: { refreshTrigger?: number 
 
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
+
+        console.log('statsData', statsData)
         setStats(statsData.stats);
       }
 

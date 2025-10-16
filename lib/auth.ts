@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-i
 export interface User {
   id: number;
   email: string;
-  phone?: string;
+  phone?: string; 
   first_name: string;
   last_name: string;
   is_active: boolean;

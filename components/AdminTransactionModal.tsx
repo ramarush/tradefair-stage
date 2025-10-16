@@ -411,7 +411,7 @@ export default function AdminTransactionModal({
                           Processing...
                         </>
                       ) : (
-                        `Create ${formData.type.charAt(0).toUpperCase() + formData.type.slice(1)}`
+                        `Create  ${formData.type.charAt(0).toUpperCase() + formData.type.slice(1)}`
                       )}
                     </button>
                   </div>

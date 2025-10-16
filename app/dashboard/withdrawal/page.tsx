@@ -36,6 +36,7 @@ export default function WithdrawalRequest() {
   const [bonusBalance, setBonusBalance] = useState<number>(0);
   const withdrawableBalance = Math.max(0, tradingBalance - bonusBalance);
   const [showAddBankAccount, setShowAddBankAccount] = useState(false);
+ const [errorMessage , setErrorMessage] = useState('');
   const [newBankAccount, setNewBankAccount] = useState({
     bankName: '',
     accountNumber: '',
@@ -43,22 +44,33 @@ export default function WithdrawalRequest() {
     ifscCode: ''
   });
 
+
+
   useEffect(() => {
-    const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token');
     if (!token) {
       router.push('/login');
       return;
     }
-    
-    // Get user's preferred currency
-    const currency = getUserCurrency();
-    setUserCurrency(currency);
-    setCurrencyInfo(getCurrencyInfo(currency));
-    
-    // Fetch user's bank accounts and balance
     fetchBankAccounts();
-    fetchUserBalance();
-  }, [router]);
+        fetchUserBalance();
+  },[])
+  // useEffect(() => {
+  //   const token = localStorage.getItem('token');
+  //   if (!token) {
+  //     router.push('/login');
+  //     return;
+  //   }
+  //       fetchUserBalance();
+  //   fetchBankAccounts();
+  //   // Get user's preferred currency
+  //   const currency = getUserCurrency();
+  //   setUserCurrency(currency);
+  //   setCurrencyInfo(getCurrencyInfo(currency));
+    
+  //   // Fetch user's bank accounts and balance
+
+  // }, [router]);
 
   const fetchBankAccounts = async () => {
     try {
@@ -196,7 +208,9 @@ export default function WithdrawalRequest() {
         await fetchUserBalance();
       } else {
         const error = await response.json();
-        alert(error.error || 'Failed to submit withdrawal request');
+console.log("error" ,error)
+        setErrorMessage(error.error || 'Failed to submit withdrawal request');
+      
       }
     } catch (error) {
       console.error('Error submitting withdrawal:', error);
@@ -205,6 +219,9 @@ export default function WithdrawalRequest() {
       setLoading(false);
     }
   };
+
+
+
 
   if (success) {
     return (
@@ -241,6 +258,40 @@ export default function WithdrawalRequest() {
         </div>
       </div>
     );
+  } else if(errorMessage) {
+    return (
+       <div className="min-h-screen bg-gray-50 py-12">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
+              <ArrowUpIcon className="h-6 w-6 text-blue-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              Withdrawal Request Failed!
+            </h2>
+            <p className="text-red-600 mb-6">
+          {errorMessage}
+            </p>
+            <div className="space-y-3">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+              >
+                Back to Dashboard
+              </Link>
+              <div>
+                <Link
+                  href="/dashboard/withdrawals"
+                  className="text-indigo-600 hover:text-indigo-500 font-medium"
+                >
+                  View All Withdrawals
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
