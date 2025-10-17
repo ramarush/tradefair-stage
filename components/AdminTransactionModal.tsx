@@ -34,6 +34,7 @@ interface TransactionFormData {
   balanceType: 'wallet' | 'bonus';
   notes: string;
   otp: string;
+  utrNumber:string;
 }
 
 export default function AdminTransactionModal({ 
@@ -47,7 +48,8 @@ export default function AdminTransactionModal({
     type: 'deposit',
     balanceType: 'wallet',
     notes: '',
-    otp: ''
+    otp: '',
+    utrNumber:''
   });
   
   const [loading, setLoading] = useState(false);
@@ -64,7 +66,8 @@ export default function AdminTransactionModal({
         type: 'deposit',
         balanceType: 'wallet',
         notes: '',
-        otp: ''
+        otp: '',
+        utrNumber: ''
       });
       setError(null);
       setSuccess(null);
@@ -147,7 +150,8 @@ export default function AdminTransactionModal({
           type: formData.type,
           balanceType: formData.balanceType,
           notes: formData.notes,
-          otp: formData.otp
+          otp: formData.otp,
+          utrNumber: formData.utrNumber
         })
       });
 
@@ -201,7 +205,7 @@ export default function AdminTransactionModal({
                 <div className="flex items-center justify-between mb-4">
                   <Dialog.Title as="h3" className="text-lg font-semibold text-gray-900 flex items-center">
                     <CurrencyDollarIcon className="h-6 w-6 text-blue-600 mr-2" />
-                    Create Transaction
+                    Create Transaction 
                   </Dialog.Title>
                   <button
                     onClick={onClose}
@@ -351,6 +355,25 @@ export default function AdminTransactionModal({
                     />
                   </div>
 
+{/* UTR NUmber  */}
+<div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    UTR Number *
+                  </label>
+                  <input
+                    type="text"
+                    name="utrNumber"
+                    required
+
+                    value={formData.utrNumber}
+                    onChange={(e) => setFormData({ ...formData, utrNumber: e.target.value })}
+                    className="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base"
+                    placeholder="Enter UTR/Transaction Reference Number"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    Enter the UTR number from your bank transfer or transaction reference number.
+                  </p>
+                </div>
                   {/* Notes */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

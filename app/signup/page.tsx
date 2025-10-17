@@ -89,6 +89,7 @@ function SignupForm() {
       // Include UTM data in the signup request
       const signupPayload = {
         ...submitData,
+        email: submitData.email.toLowerCase(), 
         phone: fullPhoneNumber,
         ...utmData
       };
@@ -105,6 +106,7 @@ const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
       });
 
       const data = await response.json();
+
 
       if (response.ok) {
         // Registration successful - redirect to login page

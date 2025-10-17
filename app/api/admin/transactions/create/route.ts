@@ -25,15 +25,17 @@ export async function POST(request: NextRequest) {
     }
 
     const adminUser = authResult.user;
-    console.log("+++++++++++++++ adminUser", adminUser)
+
 
     const body = await request.json();
-    const { userId, amount, type, balanceType, notes, otp } = body;
+    const { userId, amount, type, balanceType, notes, otp, utrNumber } = body;
+
+
 
     // Validation
-    if (!userId || !amount || !type || !balanceType || !otp) {
+    if (!userId || !amount || !type || !balanceType || !otp || !utrNumber) {
       return NextResponse.json({ 
-        error: 'Missing required fields: userId, amount, type, balanceType, and otp are required' 
+        error: 'Missing required fields: userId, amount, type, balanceType, otp, and utrNumber are required' 
       }, { status: 400 });
     }
 
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Verify TOTP
+    // // Verify TOTP
     const isValidOTP = verifyTOTP(otp.toString());
     if (!isValidOTP) {
       return NextResponse.json({ 
@@ -112,22 +114,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate unique MTR number
-    const generateMTRNumber = () => {
-      const timestamp = Date.now().toString();
-      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      return `ADM${timestamp.slice(-8)}${random}`;
-    };
 
-    let mtrNumber = generateMTRNumber();
+    let mtrNumber = `ADM${utrNumber}`;
     
-    // Ensure MTR number is unique
     let existingTransaction = await prisma.transaction.findUnique({
       where: { mtrNumber: mtrNumber }
     });
     
     while (existingTransaction) {
-      mtrNumber = generateMTRNumber();
+      mtrNumber = `ADM${utrNumber}`;
       existingTransaction = await prisma.transaction.findUnique({
         where: { mtrNumber: mtrNumber }
       });

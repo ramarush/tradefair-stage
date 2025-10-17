@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -18,6 +19,7 @@ interface User {
   balance?: string;
   created_at: string;
   updated_at: string;
+  tradingPlatformAccountId: number;
 }
 
 interface UserFormData {
@@ -56,7 +58,6 @@ export default function UsersManagement() {
   });
 
 
-  console.log('users', users)
   useEffect(() => {
     fetchUsers();
   }, [currentPage, searchTerm, statusFilter]);
@@ -312,6 +313,9 @@ export default function UsersManagement() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      ARKID
+                    </th> 
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       User
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -337,9 +341,13 @@ export default function UsersManagement() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {users.map((user) => (
                     <tr key={user.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {user.tradingPlatformAccountId}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
+
+                          <div className="text-sm capitalize font-medium text-gray-900">
                             {user.first_name} {user.last_name}
                           </div>
                           <div className="text-sm text-gray-500">{user.email}</div>

@@ -86,6 +86,7 @@ export async function GET(request: NextRequest) {
           updatedAt: true,
           isAdmin:true,
           isStaff:true,
+          tradingPlatformAccountId:true
 
         },
 
@@ -101,6 +102,8 @@ export async function GET(request: NextRequest) {
           is_staff: u.isStaff,
           is_active: u.isActive,
           created_at:u.createdAt,
+          first_name:u.firstName,
+          last_name:u.lastName
         })),
         pagination: {
           page,

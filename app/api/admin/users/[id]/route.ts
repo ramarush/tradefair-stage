@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { verifyToken, hashPassword, validateEmail, validatePhone } from '@/lib/auth';
+import { PrismaClient } from '@prisma/client';
+import tradingPlatformApi from '@/lib/tradingPlatformApi';
+
 
 // GET - Get single user
+
+ const prisma = new PrismaClient();
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -226,16 +231,14 @@ export async function DELETE(
       );
     }
 
-    const client = await pool.connect();
-    
     try {
       // Check if requesting user is admin
-      const userResult = await client.query(
-        'SELECT is_admin FROM users WHERE id = $1',
-        [decoded.userId]
-      );
+      const requestingUser = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: { isAdmin: true }
+      });
 
-      if (userResult.rows.length === 0 || !userResult.rows[0].is_admin) {
+      if (!requestingUser || !requestingUser.isAdmin) {
         return NextResponse.json(
           { error: 'Access denied. Admin privileges required.' },
           { status: 403 }
@@ -251,27 +254,40 @@ export async function DELETE(
       }
 
       // Check if user exists
-      const existingUser = await client.query(
-        'SELECT id FROM users WHERE id = $1',
-        [id]
-      );
+      const existingUser = await prisma.user.findUnique({
+        where: { id: Number(id) }
+      });
 
-      if (existingUser.rows.length === 0) {
+      if (!existingUser) {
         return NextResponse.json(
           { error: 'User not found' },
           { status: 404 }
         );
       }
-
-      // Delete user
-      await client.query('DELETE FROM users WHERE id = $1', [id]);
+      if (existingUser.tradingPlatformUserId) {
+        try {
+          await tradingPlatformApi.deleteUser(existingUser.tradingPlatformUserId);
+        } catch (deleteError) {
+          console.error('Failed to delete trading platform user:', deleteError);
+          return NextResponse.json({
+            message:"user is not delete from ARK platform"
+          },{status:400})
+        }
+      }
+      await prisma.user.delete({
+        where: { id: Number(id) }
+      });
 
       return NextResponse.json({
         message: 'User deleted successfully'
       }, { status: 200 });
 
-    } finally {
-      client.release();
+    } catch (error) {
+      console.error('Delete user error:', error);
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
     }
 
   } catch (error) {
