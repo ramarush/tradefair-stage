@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import FloatingContactButton from '@/components/FloatingContactButton';
 import { UserNotificationProvider, useUserNotifications } from '@/contexts/UserNotificationContext';
 import { NotificationProvider, useNotifications } from '@/contexts/NotificationContext';
@@ -16,17 +15,15 @@ import {
   ClockIcon,
   CheckCircleIcon,
   XCircleIcon,
-  NewspaperIcon,
   DocumentTextIcon,
   ServerIcon,
   ArrowDownTrayIcon,
   DevicePhoneMobileIcon,
   ComputerDesktopIcon,
-  GlobeAltIcon,
   ChevronDownIcon,
   ChevronUpIcon
 } from '@heroicons/react/24/outline';
-import { getUserCurrency, displayAmount, formatCurrency, getCurrencyInfo } from '@/lib/currency';
+import { getUserCurrency,  formatCurrency, getCurrencyInfo } from '@/lib/currency';
 
 interface User {
   id: number;
@@ -482,7 +479,7 @@ function CustomerDashboardContent({ refreshTrigger }: { refreshTrigger?: number 
           </div>
         </div>
       </div>
-      <Footer />
+    
       <FloatingContactButton />
     </>
   );

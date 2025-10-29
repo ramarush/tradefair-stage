@@ -46,31 +46,31 @@ export default function WithdrawalRequest() {
 
 
 
-  useEffect(() => {
-      const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/login');
-      return;
-    }
-    fetchBankAccounts();
-        fetchUserBalance();
-  },[])
   // useEffect(() => {
-  //   const token = localStorage.getItem('token');
+  //     const token = localStorage.getItem('token');
   //   if (!token) {
   //     router.push('/login');
   //     return;
   //   }
-  //       fetchUserBalance();
   //   fetchBankAccounts();
-  //   // Get user's preferred currency
-  //   const currency = getUserCurrency();
-  //   setUserCurrency(currency);
-  //   setCurrencyInfo(getCurrencyInfo(currency));
+  //       fetchUserBalance();
+  // },[])
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+        fetchUserBalance();
+    fetchBankAccounts();
+    // Get user's preferred currency
+    const currency = getUserCurrency();
+    setUserCurrency(currency);
+    setCurrencyInfo(getCurrencyInfo(currency));
     
-  //   // Fetch user's bank accounts and balance
+    // Fetch user's bank accounts and balance
 
-  // }, [router]);
+  }, [router]);
 
   const fetchBankAccounts = async () => {
     try {

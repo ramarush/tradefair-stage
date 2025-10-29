@@ -259,7 +259,7 @@ if (process.argv[1] === __filename) {
       
     } catch (error) {
       console.error('Failed to start heartbeat service:', error.message);
-      process.exit(1);
+      
     }
   }
   

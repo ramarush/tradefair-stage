@@ -9,7 +9,7 @@ const Hero = () => {
 
       {/* Background Video */}
       <video
-        className="absolute inset-0 w-full h-full object-cover "
+        className="absolute inset-0 w-full h-4/5   md:h-full object-cover "
         src="https://direct-website.azureedge.net/assets/img/svelte-home/hero/buttons/bg-video.webm"
         autoPlay
         loop
@@ -48,10 +48,12 @@ const Hero = () => {
           </div>
 
           <Link
-            href="/login"
+            href="https://wa.link/tradefair-customercare"
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 sm:px-10 py-3 sm:py-4 rounded-full shadow-lg transition duration-300 text-base sm:text-lg"
           >
-            Trade Like a Pro!
+            Try free Demo
           </Link>
         </div>
 

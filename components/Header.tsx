@@ -51,7 +51,7 @@ const Header = () => {
   const handleMouseLeave = () => setDropdownOpen(false);
 
   // Determine z-index class based on user role
-  const zIndexClass = user?.is_admin ? '-z-10' : 'z-50';
+  const zIndexClass = user?.is_admin ? '' : 'z-50';
 
   return (
     <header

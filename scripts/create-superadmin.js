@@ -75,17 +75,17 @@ async function createSuperAdmin() {
     // Validate input
     if (!email || !firstName || !lastName || !password) {
       console.log('\n❌ All fields except phone are required!');
-      process.exit(1);
+      
     }
     
     if (password !== confirmPassword) {
       console.log('\n❌ Passwords do not match!');
-      process.exit(1);
+      
     }
     
     if (password.length < 8) {
       console.log('\n❌ Password must be at least 8 characters long!');
-      process.exit(1);
+      
     }
     
     // Check if email already exists
@@ -96,7 +96,7 @@ async function createSuperAdmin() {
     
     if (existingUser) {
       console.log('\n❌ User with this email already exists!');
-      process.exit(1);
+     
     }
     
     // Hash password
@@ -139,7 +139,7 @@ async function createSuperAdmin() {
     
   } catch (error) {
     console.error('\n❌ Error creating superadmin:', error);
-    process.exit(1);
+    
   } finally {
     await prisma.$disconnect();
     rl.close();

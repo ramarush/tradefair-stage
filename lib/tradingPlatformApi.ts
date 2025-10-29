@@ -467,7 +467,7 @@ class TradingPlatformApiService {
           },
         });
 
-  console.log(' lastUser', )
+  console.log(' lastUser', lastUser)
         if (lastUser && lastUser.tradingPlatformAccountId) {
 
  
@@ -547,8 +547,9 @@ console.log(" prisma disconnect tradingAPI create user time ")
         mobile: userData.mobile,
         parentId: 372,
         password: userData.password,
-        secondPassword: "",
-        investorPassword: "",
+
+         secondPassword: arkVariables.secondPassword || "Second@123", // Default fallback..
+        investorPassword: arkVariables.secondPassword || "Second@123",
         percentageLevel1: 100.0,
         percentageLevel2: 100.0,
         percentageLevel3: 100.0,
@@ -577,7 +578,7 @@ console.log(" prisma disconnect tradingAPI create user time ")
       };
 
     
-console.log(" call ark create user api ")
+console.log(" call ark create user api " ,createUserPayload.secondPassword)
       await this.loginAsAdmin();
       const response = await fetch(`${this.baseUrl}/admin/public/api/v1/user`, {
         method: "POST",
@@ -592,7 +593,7 @@ console.log(" call ark create user api ")
 
       
       if (!response.ok) {
-        console.log(" response is not ok" ,response.ok)
+        console.log(" response is not ok" ,response)
         const errorText = await response.text();
         console.error(
           "Trading platform user creation failed:",
